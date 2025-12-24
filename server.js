@@ -1096,21 +1096,42 @@ app.post(
   ]),
   async (req, res) => {
     try {
-      const { name, phone, country, passport, experience } = req.body;
+      // const { name, phone, country, passport, experience } = req.body;
+      const { name, email, phone, country, experience } = req.body;
 
-      if (!req.files.photo || !req.files.passportImage) {
-        return res.status(400).json({ message: "Photo and passport are required" });
+
+      // if (!req.files.photo || !req.files.passportImage) {
+      //   return res.status(400).json({ message: "Photo and passport are required" });
+      // }
+       if (!name || !email || !phone || !country || !experience) {
+        return res.status(400).json({ message: "All fields are required" });
       }
 
-      const photoURL = req.files.photo[0].path.replace(/\\/g, "/");
+      // const photoURL = req.files.photo[0].path.replace(/\\/g, "/");
+      // const passportURL = req.files.passportImage[0].path.replace(/\\/g, "/");
+      // const certificateURL = req.files.certificate ? req.files.certificate[0].path.replace(/\\/g, "/") : "";
+
+      // const application = new Application({
+      //   name,
+      //   phone,
+      //   country,
+      //   passport,
+      //   experience,
+      //   photoURL,
+      //   passportURL,
+      //   certificateURL,
+      // });
+       const photoURL = req.files.photo[0].path.replace(/\\/g, "/");
       const passportURL = req.files.passportImage[0].path.replace(/\\/g, "/");
-      const certificateURL = req.files.certificate ? req.files.certificate[0].path.replace(/\\/g, "/") : "";
+      const certificateURL = req.files.certificate
+        ? req.files.certificate[0].path.replace(/\\/g, "/")
+        : "";
 
       const application = new Application({
         name,
+        email,        
         phone,
         country,
-        passport,
         experience,
         photoURL,
         passportURL,
