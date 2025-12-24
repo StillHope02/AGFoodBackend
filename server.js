@@ -1236,6 +1236,456 @@ app.patch("/applications/:id/status", async (req, res) => {
   }
 });
 
+// ============================================
+// OFFER LETTER ROUTES
+// ============================================
+
+// Serve offer letter HTML page
+app.get("/offer-letter", (req, res) => {
+  const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Offer Letter - AG Food</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Georgia', serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #166534 0%, #15803d 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .header .subtitle {
+            font-size: 18px;
+            font-weight: 600;
+            margin-top: 10px;
+            border-top: 2px solid rgba(255,255,255,0.3);
+            padding-top: 10px;
+        }
+        .logos {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 20px;
+            background: #f9fafb;
+            border-bottom: 3px solid #166534;
+        }
+        .flag {
+            width: 80px;
+            height: 50px;
+            background: linear-gradient(90deg, #ff0000 33%, white 33%, white 66%, #ff0000 66%);
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            position: relative;
+        }
+        .maple-leaf {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 30px;
+        }
+        .checkmark {
+            width: 60px;
+            height: 60px;
+            background: #16a34a;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 32px;
+        }
+        .eden-logo {
+            font-size: 36px;
+            font-weight: bold;
+            color: #84cc16;
+            font-style: italic;
+        }
+        .content { padding: 40px; }
+        .date {
+            text-align: right;
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .profile-section {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 10px;
+            border-left: 4px solid #166534;
+        }
+        .profile-photo {
+            width: 150px;
+            height: 150px;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 3px solid #166534;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .profile-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .profile-details { flex: 1; }
+        .detail-row {
+            display: flex;
+            margin-bottom: 12px;
+            font-size: 15px;
+        }
+        .detail-label {
+            font-weight: bold;
+            width: 150px;
+            color: #374151;
+        }
+        .detail-value { color: #1f2937; }
+        .letter-body {
+            line-height: 1.8;
+            color: #374151;
+            margin-bottom: 30px;
+        }
+        .letter-body h3 {
+            color: #166534;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            font-size: 16px;
+            text-transform: uppercase;
+            border-bottom: 2px solid #166534;
+            padding-bottom: 5px;
+        }
+        .letter-body p {
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+        .letter-body ul {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+        .letter-body li { margin-bottom: 8px; }
+        .approved-stamp {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .stamp {
+            display: inline-block;
+            border: 5px solid #16a34a;
+            border-radius: 50%;
+            padding: 20px 30px;
+            transform: rotate(-15deg);
+            box-shadow: 0 4px 15px rgba(22, 101, 52, 0.3);
+        }
+        .stamp-text {
+            font-size: 32px;
+            font-weight: bold;
+            color: #16a34a;
+            text-transform: uppercase;
+        }
+        .qr-section {
+            background: #f9fafb;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            margin-top: 30px;
+            border: 2px dashed #166534;
+        }
+        .qr-section h3 {
+            color: #166534;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        .qr-section p {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        #qrcode {
+            display: inline-block;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .footer {
+            background: #166534;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+        }
+        .signature-section {
+            margin-top: 40px;
+            text-align: right;
+        }
+        .signature-line {
+            border-top: 2px solid #374151;
+            width: 250px;
+            margin-left: auto;
+            margin-top: 60px;
+            padding-top: 10px;
+        }
+        .contact-info {
+            background: #fef3c7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-left: 4px solid #f59e0b;
+        }
+        .contact-info p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        @media (max-width: 768px) {
+            .profile-section {
+                flex-direction: column;
+                align-items: center;
+            }
+            .profile-photo {
+                width: 120px;
+                height: 120px;
+            }
+            .detail-row { flex-direction: column; }
+            .detail-label {
+                width: 100%;
+                margin-bottom: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Canadian Immigration Consultancy</h1>
+            <div class="subtitle">Job Offer and Agreement Letter</div>
+        </div>
+
+        <div class="logos">
+            <div class="logo-item">
+                <div class="flag"><span class="maple-leaf">🍁</span></div>
+            </div>
+            <div class="logo-item">
+                <div class="checkmark">✓</div>
+                <div style="margin-top: 5px; font-weight: bold; color: #16a34a;">Thank You</div>
+            </div>
+            <div class="logo-item">
+                <div class="eden-logo">eden</div>
+                <div style="font-size: 12px; color: #84cc16;">food for change</div>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="date">Date: <span id="currentDate"></span></div>
+
+            <div class="profile-section">
+                <div class="profile-photo">
+                    <img id="applicantPhoto" src="" alt="Applicant Photo">
+                </div>
+                <div class="profile-details">
+                    <div class="detail-row">
+                        <span class="detail-label">► Full Name</span>
+                        <span class="detail-value">: <span id="applicantName"></span></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">► Date of Birth</span>
+                        <span class="detail-value">: 01/04/1979</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">► Passport No</span>
+                        <span class="detail-value">: <span id="passportNo"></span></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">► Expiry Date</span>
+                        <span class="detail-value">: 08/10/2034</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">► Work</span>
+                        <span class="detail-value">: <span id="workField"></span></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="letter-body">
+                <p>
+                    The Canadian Natural Resources <strong>EDEN FOOD Company</strong> are pleased to offer you employment in 
+                    Canadian Natural Resources EDEN FOOD COMPANY Mountain Ave, Banff, ABT2P418, CANADA. 
+                    The employment is subjected to the following terms and conditions.
+                </p>
+
+                <h3>Designation</h3>
+                <p><strong id="designation">Packing</strong></p>
+
+                <h3>Contract Period</h3>
+                <p>This contract will be valid for a period of 2 years from the date of joining and is renewable after the completion of the first 2 years.</p>
+
+                <h3>Remuneration and Perquisities</h3>
+                <p>We are offering Basic Monthly Salary <strong>2800 Canadian Dollars</strong> with <strong>200 Dollars Bonus</strong> and Total salary is <strong>3000 Canadian Dollars</strong>.</p>
+
+                <h3>Benefits</h3>
+                <ul>
+                    <li><strong>Housing:</strong> Suitable housing facility will be provided by the company</li>
+                    <li><strong>Medical:</strong> Medical coverage as per company rules and regulations</li>
+                    <li><strong>Transport:</strong> Transport will be provided for official usage</li>
+                    <li><strong>Annual Leave:</strong> One calendar month for each complete year of employment</li>
+                    <li><strong>Leave Passage:</strong> Return air passage for economy class (employee + family)</li>
+                    <li><strong>Visa Expenses:</strong> Will be reimbursed upon joining</li>
+                </ul>
+
+                <div class="contact-info">
+                    <p><strong>Company Owner:</strong> Mr. SARDAR JAGMOHAN SINGH</p>
+                    <p><strong>Mobile No:</strong> +1 343 501 3133 / +44 7441 929399</p>
+                </div>
+            </div>
+
+            <div class="approved-stamp">
+                <div class="stamp">
+                    <div class="stamp-text">Approved</div>
+                </div>
+            </div>
+
+            <div class="qr-section">
+                <h3>🔒 Verification QR Code</h3>
+                <p>Scan this QR code to verify the authenticity of this offer letter</p>
+                <div id="qrcode"></div>
+                <p style="margin-top: 15px; font-size: 12px; color: #666;">
+                    QR Code contains: Applicant Name & Passport Number
+                </p>
+            </div>
+
+            <div class="signature-section">
+                <div class="signature-line">
+                    <div style="font-style: italic; font-size: 18px; margin-bottom: 5px;">Jagmohan Singh</div>
+                    <div style="font-size: 12px; color: #666;">Authorized Signatory</div>
+                    <div style="font-size: 12px; color: #666;">For EDEN FOOD</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            For EDEN FOOD - This is a computer generated document
+        </div>
+    </div>
+
+    <script>
+        function getUrlParameter(name) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(name);
+        }
+
+        async function loadApplicantData() {
+            const passportNumber = getUrlParameter('passport');
+            
+            if (!passportNumber) {
+                alert('No passport number provided');
+                return;
+            }
+
+            try {
+                const response = await fetch(\`/api/offer-letter-data/\${passportNumber}\`);
+                const data = await response.json();
+
+                if (!response.ok) throw new Error(data.message);
+
+                document.getElementById('applicantName').textContent = data.name;
+                document.getElementById('passportNo').textContent = passportNumber;
+                document.getElementById('workField').textContent = data.jobPosition || 'Packing';
+                document.getElementById('designation').textContent = data.jobPosition || 'Packing';
+                
+                const today = new Date();
+                document.getElementById('currentDate').textContent = today.toLocaleDateString('en-GB');
+
+                // Set photo
+                if (data.photoURL) {
+                    document.getElementById('applicantPhoto').src = \`/\${data.photoURL}\`;
+                } else {
+                    document.getElementById('applicantPhoto').src = 'https://via.placeholder.com/150?text=Photo';
+                }
+
+                // Generate QR Code
+                const qrData = \`Name: \${data.name}\\nPassport: \${passportNumber}\\nPosition: \${data.jobPosition || 'Packing'}\\nStatus: Approved\`;
+                
+                new QRCode(document.getElementById('qrcode'), {
+                    text: qrData,
+                    width: 150,
+                    height: 150,
+                    colorDark: '#166534',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+
+            } catch (error) {
+                console.error('Error loading data:', error);
+                alert('Error loading offer letter: ' + error.message);
+            }
+        }
+
+        window.onload = loadApplicantData;
+    </script>
+</body>
+</html>
+  `;
+
+  res.send(htmlContent);
+});
+
+// API endpoint to get offer letter data
+app.get("/api/offer-letter-data/:passportNumber", async (req, res) => {
+  try {
+    const { passportNumber } = req.params;
+
+    const application = await Application.findOne({ 
+      passportNumber: passportNumber.toUpperCase() 
+    });
+
+    if (!application) {
+      return res.status(404).json({ message: "Application not found" });
+    }
+
+    if (application.status !== "Approved") {
+      return res.status(403).json({ message: "Application not approved yet" });
+    }
+
+    res.json({
+      name: application.name,
+      email: application.email,
+      phone: application.phone,
+      country: application.country,
+      jobPosition: application.jobPosition,
+      experience: application.experience,
+      photoURL: application.photoURL,
+      passportURL: application.passportURL,
+    });
+
+  } catch (err) {
+    console.error("Error fetching offer letter data:", err);
+    res.status(500).json({ message: "Error loading data", error: err.message });
+  }
+});
 // Apply route
 // Apply route - FIXED VERSION
 app.post(
