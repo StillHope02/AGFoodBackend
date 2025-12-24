@@ -693,6 +693,7 @@ const applicationSchema = new mongoose.Schema({
   country: { type: String, required: true },
   email: { type: String, required: true },
   passportNumber: { type: String, required: true },
+   jobPosition: { type: String, required: true },
   // passport: { type: String, required: true },
   experience: { type: String, required: true },
   photoURL: { type: String, required: true },
@@ -764,6 +765,11 @@ app.get("/", (req, res) => {
 // ============================================
 
 // Add this route to your server.js
+// ============================================
+// CHECK STATUS API ROUTE - WITH JOB POSITION
+// ============================================
+
+// Add this route to your server.js
 
 app.get("/api/check-status/:passportNumber", async (req, res) => {
   try {
@@ -771,51 +777,101 @@ app.get("/api/check-status/:passportNumber", async (req, res) => {
 
     console.log("🔍 Checking status for passport:", passportNumber);
 
-    // First, find the application by passport number (stored in User model)
-    const user = await User.findOne({ passportNumber: passportNumber.toUpperCase() });
-
-    if (!user) {
-      return res.status(404).json({
-        message: "No application found with this passport number"
-      });
-    }
-
-    // Find matching application by name (since applications don't have passport field)
-    const application = await Application.findOne({ name: user.fullName });
+    // Find application by passport number
+    const application = await Application.findOne({ 
+      passportNumber: passportNumber.toUpperCase() 
+    });
 
     if (!application) {
-      return res.status(404).json({
-        message: "Application record not found"
+      return res.status(404).json({ 
+        message: "No application found with this passport number" 
       });
     }
 
     console.log("✅ Found application:", application._id);
 
-    // Return application details with user ID for PDF generation
+    // If approved, find matching user for PDF generation
+    let userId = null;
+    if (application.status === "Approved") {
+      const user = await User.findOne({ 
+        fullName: application.name,
+        passportNumber: application.passportNumber 
+      });
+      userId = user ? user._id : null;
+    }
+
+    // Return application details - INCLUDE jobPosition
     res.json({
-      name: user.fullName,
+      name: application.name,
       email: application.email,
       phone: application.phone,
       country: application.country,
+      jobPosition: application.jobPosition, // ✅ ADDED
       experience: application.experience,
       status: application.status,
       createdAt: application.createdAt,
-      userId: user._id, // Important for PDF generation
+      userId: userId, // Important for PDF generation
     });
 
   } catch (err) {
     console.error("❌ Error checking status:", err);
-    res.status(500).json({
-      message: "Error checking status",
-      error: err.message
+    res.status(500).json({ 
+      message: "Error checking status", 
+      error: err.message 
     });
   }
 });
+// app.get("/api/check-status/:passportNumber", async (req, res) => {
+//   try {
+//     const { passportNumber } = req.params;
+
+//     console.log("🔍 Checking status for passport:", passportNumber);
+
+//     // First, find the application by passport number (stored in User model)
+//     const user = await User.findOne({ passportNumber: passportNumber.toUpperCase() });
+
+//     if (!user) {
+//       return res.status(404).json({
+//         message: "No application found with this passport number"
+//       });
+//     }
+
+//     // Find matching application by name (since applications don't have passport field)
+//     const application = await Application.findOne({ name: user.fullName });
+
+//     if (!application) {
+//       return res.status(404).json({
+//         message: "Application record not found"
+//       });
+//     }
+
+//     console.log("✅ Found application:", application._id);
+
+//     // Return application details with user ID for PDF generation
+//     res.json({
+//       name: user.fullName,
+//       email: application.email,
+//       phone: application.phone,
+//       country: application.country,
+//       experience: application.experience,
+//       status: application.status,
+//       createdAt: application.createdAt,
+//       userId: user._id, // Important for PDF generation
+//     });
+
+//   } catch (err) {
+//     console.error("❌ Error checking status:", err);
+//     res.status(500).json({
+//       message: "Error checking status",
+//       error: err.message
+//     });
+//   }
+// });
 
 
-// ============================================
-// ALTERNATIVE: If you want to check by email instead
-// ============================================
+// // ============================================
+// // ALTERNATIVE: If you want to check by email instead
+// // ============================================
 app.get("/api/check-status-by-email/:email", async (req, res) => {
   try {
     const { email } = req.params;
@@ -1194,11 +1250,11 @@ app.post(
       console.log("📝 Request body:", req.body);
       console.log("📎 Files received:", req.files ? Object.keys(req.files) : "No files");
 
-      // Extract form data - INCLUDE passportNumber
-      const { name, email, phone, passportNumber, country, experience } = req.body;
+      // Extract form data - INCLUDE jobPosition
+      const { name, email, phone, passportNumber, country, jobPosition, experience } = req.body;
 
       // Validate text fields
-      if (!name || !email || !phone || !passportNumber || !country || !experience) {
+      if (!name || !email || !phone || !passportNumber || !country || !jobPosition || !experience) {
         console.log("❌ Missing text fields");
         return res.status(400).json({ 
           message: "All fields are required",
@@ -1206,8 +1262,9 @@ app.post(
             name: !name,
             email: !email,
             phone: !phone,
-            passportNumber: !passportNumber, // ✅ ADDED
+            passportNumber: !passportNumber,
             country: !country,
+            jobPosition: !jobPosition, // ✅ ADDED
             experience: !experience
           }
         });
@@ -1242,13 +1299,14 @@ app.post(
 
       console.log("✅ All validations passed, creating application...");
 
-      // Create new application - INCLUDE passportNumber
+      // Create new application - INCLUDE jobPosition
       const application = new Application({
         name,
         email,
         phone,
-        passportNumber: passportNumber.toUpperCase(), // ✅ ADDED
+        passportNumber: passportNumber.toUpperCase(),
         country,
+        jobPosition, // ✅ ADDED
         experience,
         photoURL,
         passportURL,
@@ -1279,6 +1337,103 @@ app.post(
     }
   }
 );
+// app.post(
+//   "/apply",
+//   upload.fields([
+//     { name: "photo", maxCount: 1 },
+//     { name: "passportImage", maxCount: 1 },
+//     { name: "certificate", maxCount: 1 },
+//   ]),
+//   async (req, res) => {
+//     try {
+//       console.log("📝 Request body:", req.body);
+//       console.log("📎 Files received:", req.files ? Object.keys(req.files) : "No files");
+
+//       // Extract form data - INCLUDE passportNumber
+//       const { name, email, phone, passportNumber, country, experience } = req.body;
+
+//       // Validate text fields
+//       if (!name || !email || !phone || !passportNumber || !country || !experience) {
+//         console.log("❌ Missing text fields");
+//         return res.status(400).json({ 
+//           message: "All fields are required",
+//           missing: {
+//             name: !name,
+//             email: !email,
+//             phone: !phone,
+//             passportNumber: !passportNumber, // ✅ ADDED
+//             country: !country,
+//             experience: !experience
+//           }
+//         });
+//       }
+
+//       // Validate files
+//       if (!req.files || !req.files.photo || !req.files.passportImage) {
+//         console.log("❌ Missing required files");
+//         return res.status(400).json({ 
+//           message: "Profile photo and passport image are required",
+//           filesReceived: req.files ? Object.keys(req.files) : []
+//         });
+//       }
+
+//       // Check if passport number already exists
+//       const existingApplication = await Application.findOne({ 
+//         passportNumber: passportNumber.toUpperCase() 
+//       });
+      
+//       if (existingApplication) {
+//         return res.status(400).json({ 
+//           message: "An application with this passport number already exists" 
+//         });
+//       }
+
+//       // Process file URLs
+//       const photoURL = req.files.photo[0].path.replace(/\\/g, "/");
+//       const passportURL = req.files.passportImage[0].path.replace(/\\/g, "/");
+//       const certificateURL = req.files.certificate 
+//         ? req.files.certificate[0].path.replace(/\\/g, "/") 
+//         : "";
+
+//       console.log("✅ All validations passed, creating application...");
+
+//       // Create new application - INCLUDE passportNumber
+//       const application = new Application({
+//         name,
+//         email,
+//         phone,
+//         passportNumber: passportNumber.toUpperCase(), // ✅ ADDED
+//         country,
+//         experience,
+//         photoURL,
+//         passportURL,
+//         certificateURL,
+//       });
+
+//       // Save to database
+//       await application.save();
+
+//       console.log("✅ Application saved successfully:", application._id);
+
+//       res.status(201).json({ 
+//         message: "Application submitted successfully!",
+//         applicationId: application._id
+//       });
+
+//     } catch (err) {
+//       console.error("❌ Error in /apply route:");
+//       console.error("Error name:", err.name);
+//       console.error("Error message:", err.message);
+//       console.error("Full error:", err);
+      
+//       res.status(500).json({ 
+//         message: "Error submitting application",
+//         error: err.message,
+//         errorType: err.name
+//       });
+//     }
+//   }
+// );
 // app.post(
 //   "/apply",
 //   upload.fields([
