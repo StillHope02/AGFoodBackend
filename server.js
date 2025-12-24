@@ -691,7 +691,8 @@ const applicationSchema = new mongoose.Schema({
   name: { type: String, required: true },
   phone: { type: String, required: true },
   country: { type: String, required: true },
-  passport: { type: String, required: true },
+  email: { type: String, required: true },
+  // passport: { type: String, required: true },
   experience: { type: String, required: true },
   photoURL: { type: String, required: true },
   passportURL: { type: String, required: true },
@@ -1087,6 +1088,7 @@ app.patch("/applications/:id/status", async (req, res) => {
 });
 
 // Apply route
+// Apply route - FIXED VERSION
 app.post(
   "/apply",
   upload.fields([
@@ -1096,40 +1098,38 @@ app.post(
   ]),
   async (req, res) => {
     try {
-      // const { name, phone, country, passport, experience } = req.body;
+      console.log("📝 Request body:", req.body);
+      console.log("📎 Files received:", req.files);
+
       const { name, email, phone, country, experience } = req.body;
 
-
-      // if (!req.files.photo || !req.files.passportImage) {
-      //   return res.status(400).json({ message: "Photo and passport are required" });
-      // }
-       if (!name || !email || !phone || !country || !experience) {
-        return res.status(400).json({ message: "All fields are required" });
+      // Validate text fields first
+      if (!name || !email || !phone || !country || !experience) {
+        return res.status(400).json({ 
+          message: "All text fields are required",
+          received: { name, email, phone, country, experience }
+        });
       }
 
-      // const photoURL = req.files.photo[0].path.replace(/\\/g, "/");
-      // const passportURL = req.files.passportImage[0].path.replace(/\\/g, "/");
-      // const certificateURL = req.files.certificate ? req.files.certificate[0].path.replace(/\\/g, "/") : "";
+      // Validate required files
+      if (!req.files || !req.files.photo || !req.files.passportImage) {
+        return res.status(400).json({ 
+          message: "Photo and passport image are required",
+          filesReceived: req.files ? Object.keys(req.files) : []
+        });
+      }
 
-      // const application = new Application({
-      //   name,
-      //   phone,
-      //   country,
-      //   passport,
-      //   experience,
-      //   photoURL,
-      //   passportURL,
-      //   certificateURL,
-      // });
-       const photoURL = req.files.photo[0].path.replace(/\\/g, "/");
+      // Process file paths
+      const photoURL = req.files.photo[0].path.replace(/\\/g, "/");
       const passportURL = req.files.passportImage[0].path.replace(/\\/g, "/");
-      const certificateURL = req.files.certificate
-        ? req.files.certificate[0].path.replace(/\\/g, "/")
+      const certificateURL = req.files.certificate 
+        ? req.files.certificate[0].path.replace(/\\/g, "/") 
         : "";
 
+      // Create application
       const application = new Application({
         name,
-        email,        
+        email,
         phone,
         country,
         experience,
@@ -1140,13 +1140,84 @@ app.post(
 
       await application.save();
 
-      res.status(201).json({ message: "Application submitted successfully!" });
+      console.log("✅ Application saved successfully");
+      res.status(201).json({ 
+        message: "Application submitted successfully!",
+        applicationId: application._id
+      });
+
     } catch (err) {
-      console.error(err);
-      res.status(500).json({ message: "Error submitting application" });
+      console.error("❌ Error in /apply route:", err);
+      
+      // Send detailed error for debugging
+      res.status(500).json({ 
+        message: "Error submitting application",
+        error: err.message,
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+      });
     }
   }
 );
+// app.post(
+//   "/apply",
+//   upload.fields([
+//     { name: "photo", maxCount: 1 },
+//     { name: "passportImage", maxCount: 1 },
+//     { name: "certificate", maxCount: 1 },
+//   ]),
+//   async (req, res) => {
+//     try {
+//       // const { name, phone, country, passport, experience } = req.body;
+//       const { name, email, phone, country, experience } = req.body;
+
+
+//       // if (!req.files.photo || !req.files.passportImage) {
+//       //   return res.status(400).json({ message: "Photo and passport are required" });
+//       // }
+//        if (!name || !email || !phone || !country || !experience) {
+//         return res.status(400).json({ message: "All fields are required" });
+//       }
+
+//       // const photoURL = req.files.photo[0].path.replace(/\\/g, "/");
+//       // const passportURL = req.files.passportImage[0].path.replace(/\\/g, "/");
+//       // const certificateURL = req.files.certificate ? req.files.certificate[0].path.replace(/\\/g, "/") : "";
+
+//       // const application = new Application({
+//       //   name,
+//       //   phone,
+//       //   country,
+//       //   passport,
+//       //   experience,
+//       //   photoURL,
+//       //   passportURL,
+//       //   certificateURL,
+//       // });
+//        const photoURL = req.files.photo[0].path.replace(/\\/g, "/");
+//       const passportURL = req.files.passportImage[0].path.replace(/\\/g, "/");
+//       const certificateURL = req.files.certificate
+//         ? req.files.certificate[0].path.replace(/\\/g, "/")
+//         : "";
+
+//       const application = new Application({
+//         name,
+//         email,        
+//         phone,
+//         country,
+//         experience,
+//         photoURL,
+//         passportURL,
+//         certificateURL,
+//       });
+
+//       await application.save();
+
+//       res.status(201).json({ message: "Application submitted successfully!" });
+//     } catch (err) {
+//       console.error(err);
+//       res.status(500).json({ message: "Error submitting application" });
+//     }
+//   }
+// );
 
 // ============================================
 // START SERVER
