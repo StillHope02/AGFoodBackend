@@ -758,6 +758,98 @@ app.get("/", (req, res) => {
 // ============================================
 // USER MANAGEMENT ROUTES
 // ============================================
+// ============================================
+// CHECK STATUS API ROUTE
+// ============================================
+
+// Add this route to your server.js
+
+app.get("/api/check-status/:passportNumber", async (req, res) => {
+  try {
+    const { passportNumber } = req.params;
+
+    console.log("🔍 Checking status for passport:", passportNumber);
+
+    // First, find the application by passport number (stored in User model)
+    const user = await User.findOne({ passportNumber: passportNumber.toUpperCase() });
+
+    if (!user) {
+      return res.status(404).json({ 
+        message: "No application found with this passport number" 
+      });
+    }
+
+    // Find matching application by name (since applications don't have passport field)
+    const application = await Application.findOne({ name: user.fullName });
+
+    if (!application) {
+      return res.status(404).json({ 
+        message: "Application record not found" 
+      });
+    }
+
+    console.log("✅ Found application:", application._id);
+
+    // Return application details with user ID for PDF generation
+    res.json({
+      name: user.fullName,
+      email: application.email,
+      phone: application.phone,
+      country: application.country,
+      experience: application.experience,
+      status: application.status,
+      createdAt: application.createdAt,
+      userId: user._id, // Important for PDF generation
+    });
+
+  } catch (err) {
+    console.error("❌ Error checking status:", err);
+    res.status(500).json({ 
+      message: "Error checking status", 
+      error: err.message 
+    });
+  }
+});
+
+
+// ============================================
+// ALTERNATIVE: If you want to check by email instead
+// ============================================
+app.get("/api/check-status-by-email/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    const application = await Application.findOne({ email });
+
+    if (!application) {
+      return res.status(404).json({ 
+        message: "No application found with this email" 
+      });
+    }
+
+    // Find user by name to get passport details
+    const user = await User.findOne({ fullName: application.name });
+
+    res.json({
+      name: application.name,
+      email: application.email,
+      phone: application.phone,
+      country: application.country,
+      experience: application.experience,
+      status: application.status,
+      createdAt: application.createdAt,
+      userId: user ? user._id : null,
+      passportNumber: user ? user.passportNumber : "Not available",
+    });
+
+  } catch (err) {
+    console.error("❌ Error checking status:", err);
+    res.status(500).json({ 
+      message: "Error checking status", 
+      error: err.message 
+    });
+  }
+});
 
 // GET ALL USERS WITH SEARCH
 app.get("/api/users", async (req, res) => {
