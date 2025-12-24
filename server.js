@@ -198,19 +198,19 @@
 //   .connect(process.env.MONGO_URI)
 //   .then(async () => {
 //     console.log("✅ MongoDB connected successfully");
-    
+
 //     // Fix old index issues - remove all old indexes
 //     try {
 //       const collection = mongoose.connection.db.collection('users');
-      
+
 //       // Drop username index
 //       await collection.dropIndex('username_1').catch(() => {});
 //       console.log('✅ Removed username index');
-      
+
 //       // Drop email index
 //       await collection.dropIndex('email_1').catch(() => {});
 //       console.log('✅ Removed email index');
-      
+
 //       // Drop any other old indexes except _id and passportNumber
 //       const indexes = await collection.indexes();
 //       for (const index of indexes) {
@@ -219,7 +219,7 @@
 //           console.log(`✅ Removed index: ${index.name}`);
 //         }
 //       }
-      
+
 //       console.log('✅ All old indexes cleaned up!');
 //     } catch (err) {
 //       console.log('ℹ️ Index cleanup completed');
@@ -345,7 +345,7 @@
 //       passportNumber, 
 //       _id: { $ne: req.params.id } 
 //     });
-    
+
 //     if (existingUser) {
 //       return res.status(400).json({ message: "Passport number already exists" });
 //     }
@@ -381,7 +381,7 @@
 // app.delete("/api/users/:id", async (req, res) => {
 //   try {
 //     const deletedUser = await User.findByIdAndDelete(req.params.id);
-    
+
 //     if (!deletedUser) {
 //       return res.status(404).json({ message: "User not found" });
 //     }
@@ -400,14 +400,14 @@
 // app.get("/api/users/:id/pdf", async (req, res) => {
 //   try {
 //     const user = await User.findById(req.params.id);
-    
+
 //     if (!user) {
 //       return res.status(404).json({ message: "User not found" });
 //     }
 
 //     // Create PDF
 //     const doc = new PDFDocument({ size: "A4", margin: 50 });
-    
+
 //     // Set response headers
 //     res.setHeader("Content-Type", "application/pdf");
 //     res.setHeader(
@@ -420,13 +420,13 @@
 
 //     // Header with green background
 //     doc.rect(0, 0, doc.page.width, 120).fill("#166534");
-    
+
 //     // Title
 //     doc.fillColor("#FFFFFF")
 //        .fontSize(24)
 //        .font("Helvetica-Bold")
 //        .text("CANADIAN IMMIGRATION CONSULTANCY", 50, 30, { align: "center" });
-    
+
 //     doc.fontSize(18)
 //        .text("JOB OFFER AND AGREEMENT LETTER", 50, 65, { align: "center" });
 
@@ -439,11 +439,11 @@
 
 //     // User Information Section
 //     let yPos = 160;
-    
+
 //     doc.fontSize(14)
 //        .font("Helvetica-Bold")
 //        .text("APPLICANT INFORMATION", 50, yPos);
-    
+
 //     yPos += 30;
 //     doc.fontSize(11).font("Helvetica");
 
@@ -474,7 +474,7 @@
 //     doc.fontSize(14)
 //        .font("Helvetica-Bold")
 //        .text("EMPLOYMENT OFFER", 50, yPos);
-    
+
 //     yPos += 30;
 //     doc.fontSize(11).font("Helvetica");
 
@@ -692,6 +692,7 @@ const applicationSchema = new mongoose.Schema({
   phone: { type: String, required: true },
   country: { type: String, required: true },
   email: { type: String, required: true },
+  passportNumber: { type: String, required: true },
   // passport: { type: String, required: true },
   experience: { type: String, required: true },
   photoURL: { type: String, required: true },
@@ -710,28 +711,28 @@ mongoose
   .connect(process.env.MONGO_URI)
   .then(async () => {
     console.log("✅ MongoDB connected successfully");
-    
+
     // Fix old index issues - remove all old indexes
     try {
       const collection = mongoose.connection.db.collection('users');
-      
+
       // Drop username index
-      await collection.dropIndex('username_1').catch(() => {});
+      await collection.dropIndex('username_1').catch(() => { });
       console.log('✅ Removed username index');
-      
+
       // Drop email index
-      await collection.dropIndex('email_1').catch(() => {});
+      await collection.dropIndex('email_1').catch(() => { });
       console.log('✅ Removed email index');
-      
+
       // Drop any other old indexes except _id and passportNumber
       const indexes = await collection.indexes();
       for (const index of indexes) {
         if (index.name !== '_id_' && index.name !== 'passportNumber_1') {
-          await collection.dropIndex(index.name).catch(() => {});
+          await collection.dropIndex(index.name).catch(() => { });
           console.log(`✅ Removed index: ${index.name}`);
         }
       }
-      
+
       console.log('✅ All old indexes cleaned up!');
     } catch (err) {
       console.log('ℹ️ Index cleanup completed');
@@ -746,8 +747,8 @@ mongoose
 // TEST ROUTE
 // ============================================
 app.get("/", (req, res) => {
-  res.json({ 
-    message: "AG Food Server is running", 
+  res.json({
+    message: "AG Food Server is running",
     endpoints: {
       users: "/api/users",
       applications: "/applications"
@@ -774,8 +775,8 @@ app.get("/api/check-status/:passportNumber", async (req, res) => {
     const user = await User.findOne({ passportNumber: passportNumber.toUpperCase() });
 
     if (!user) {
-      return res.status(404).json({ 
-        message: "No application found with this passport number" 
+      return res.status(404).json({
+        message: "No application found with this passport number"
       });
     }
 
@@ -783,8 +784,8 @@ app.get("/api/check-status/:passportNumber", async (req, res) => {
     const application = await Application.findOne({ name: user.fullName });
 
     if (!application) {
-      return res.status(404).json({ 
-        message: "Application record not found" 
+      return res.status(404).json({
+        message: "Application record not found"
       });
     }
 
@@ -804,9 +805,9 @@ app.get("/api/check-status/:passportNumber", async (req, res) => {
 
   } catch (err) {
     console.error("❌ Error checking status:", err);
-    res.status(500).json({ 
-      message: "Error checking status", 
-      error: err.message 
+    res.status(500).json({
+      message: "Error checking status",
+      error: err.message
     });
   }
 });
@@ -822,8 +823,8 @@ app.get("/api/check-status-by-email/:email", async (req, res) => {
     const application = await Application.findOne({ email });
 
     if (!application) {
-      return res.status(404).json({ 
-        message: "No application found with this email" 
+      return res.status(404).json({
+        message: "No application found with this email"
       });
     }
 
@@ -844,9 +845,9 @@ app.get("/api/check-status-by-email/:email", async (req, res) => {
 
   } catch (err) {
     console.error("❌ Error checking status:", err);
-    res.status(500).json({ 
-      message: "Error checking status", 
-      error: err.message 
+    res.status(500).json({
+      message: "Error checking status",
+      error: err.message
     });
   }
 });
@@ -896,7 +897,7 @@ app.post("/api/users", async (req, res) => {
 
     // Validation
     if (!fullName || !dateOfBirth || !passportNumber || !expiryDate || !workField) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Missing required fields",
         missingFields: [
           !fullName && "fullName",
@@ -924,9 +925,9 @@ app.post("/api/users", async (req, res) => {
     });
 
     await newUser.save();
-    res.status(201).json({ 
-      message: "User created successfully", 
-      user: newUser 
+    res.status(201).json({
+      message: "User created successfully",
+      user: newUser
     });
   } catch (err) {
     console.error("Error creating user:", err);
@@ -945,11 +946,11 @@ app.put("/api/users/:id", async (req, res) => {
     }
 
     // Check if passport number is being changed to one that already exists
-    const existingUser = await User.findOne({ 
-      passportNumber, 
-      _id: { $ne: req.params.id } 
+    const existingUser = await User.findOne({
+      passportNumber,
+      _id: { $ne: req.params.id }
     });
-    
+
     if (existingUser) {
       return res.status(400).json({ message: "Passport number already exists" });
     }
@@ -971,9 +972,9 @@ app.put("/api/users/:id", async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    res.json({ 
-      message: "User updated successfully", 
-      user: updatedUser 
+    res.json({
+      message: "User updated successfully",
+      user: updatedUser
     });
   } catch (err) {
     console.error("Error updating user:", err);
@@ -985,14 +986,14 @@ app.put("/api/users/:id", async (req, res) => {
 app.delete("/api/users/:id", async (req, res) => {
   try {
     const deletedUser = await User.findByIdAndDelete(req.params.id);
-    
+
     if (!deletedUser) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    res.json({ 
+    res.json({
       message: "User deleted successfully",
-      user: deletedUser 
+      user: deletedUser
     });
   } catch (err) {
     console.error("Error deleting user:", err);
@@ -1004,14 +1005,14 @@ app.delete("/api/users/:id", async (req, res) => {
 app.get("/api/users/:id/pdf", async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
-    
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
     // Create PDF
     const doc = new PDFDocument({ size: "A4", margin: 50 });
-    
+
     // Set response headers
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
@@ -1024,30 +1025,30 @@ app.get("/api/users/:id/pdf", async (req, res) => {
 
     // Header with green background
     doc.rect(0, 0, doc.page.width, 120).fill("#166534");
-    
+
     // Title
     doc.fillColor("#FFFFFF")
-       .fontSize(24)
-       .font("Helvetica-Bold")
-       .text("CANADIAN IMMIGRATION CONSULTANCY", 50, 30, { align: "center" });
-    
+      .fontSize(24)
+      .font("Helvetica-Bold")
+      .text("CANADIAN IMMIGRATION CONSULTANCY", 50, 30, { align: "center" });
+
     doc.fontSize(18)
-       .text("JOB OFFER AND AGREEMENT LETTER", 50, 65, { align: "center" });
+      .text("JOB OFFER AND AGREEMENT LETTER", 50, 65, { align: "center" });
 
     // Date
     doc.fontSize(10)
-       .text(`Date: ${new Date().toLocaleDateString()}`, 50, 95, { align: "right" });
+      .text(`Date: ${new Date().toLocaleDateString()}`, 50, 95, { align: "right" });
 
     // Reset to black for content
     doc.fillColor("#000000");
 
     // User Information Section
     let yPos = 160;
-    
+
     doc.fontSize(14)
-       .font("Helvetica-Bold")
-       .text("APPLICANT INFORMATION", 50, yPos);
-    
+      .font("Helvetica-Bold")
+      .text("APPLICANT INFORMATION", 50, yPos);
+
     yPos += 30;
     doc.fontSize(11).font("Helvetica");
 
@@ -1076,9 +1077,9 @@ app.get("/api/users/:id/pdf", async (req, res) => {
     // Job Offer Details
     yPos += 30;
     doc.fontSize(14)
-       .font("Helvetica-Bold")
-       .text("EMPLOYMENT OFFER", 50, yPos);
-    
+      .font("Helvetica-Bold")
+      .text("EMPLOYMENT OFFER", 50, yPos);
+
     yPos += 30;
     doc.fontSize(11).font("Helvetica");
 
@@ -1107,27 +1108,27 @@ Mobile No: +1 343 501 3133 / +44 7441 929399`;
     // Approval Stamp
     yPos = doc.page.height - 150;
     doc.fontSize(20)
-       .font("Helvetica-Bold")
-       .fillColor("#16a34a")
-       .text("APPROVED", doc.page.width - 200, yPos, { 
-         align: "center",
-         width: 150 
-       });
+      .font("Helvetica-Bold")
+      .fillColor("#16a34a")
+      .text("APPROVED", doc.page.width - 200, yPos, {
+        align: "center",
+        width: 150
+      });
 
     // Draw stamp circle
     doc.circle(doc.page.width - 125, yPos + 15, 50)
-       .lineWidth(3)
-       .stroke("#16a34a");
+      .lineWidth(3)
+      .stroke("#16a34a");
 
     // Footer
     doc.fontSize(8)
-       .fillColor("#666666")
-       .text(
-         "For EDEN FOOD - This is a computer generated document",
-         50,
-         doc.page.height - 50,
-         { align: "center" }
-       );
+      .fillColor("#666666")
+      .text(
+        "For EDEN FOOD - This is a computer generated document",
+        50,
+        doc.page.height - 50,
+        { align: "center" }
+      );
 
     // Finalize PDF
     doc.end();
@@ -1191,38 +1192,62 @@ app.post(
   async (req, res) => {
     try {
       console.log("📝 Request body:", req.body);
-      console.log("📎 Files received:", req.files);
+      console.log("📎 Files received:", req.files ? Object.keys(req.files) : "No files");
 
-      const { name, email, phone, country, experience } = req.body;
+      // Extract form data - INCLUDE passportNumber
+      const { name, email, phone, passportNumber, country, experience } = req.body;
 
-      // Validate text fields first
-      if (!name || !email || !phone || !country || !experience) {
+      // Validate text fields
+      if (!name || !email || !phone || !passportNumber || !country || !experience) {
+        console.log("❌ Missing text fields");
         return res.status(400).json({ 
-          message: "All text fields are required",
-          received: { name, email, phone, country, experience }
+          message: "All fields are required",
+          missing: {
+            name: !name,
+            email: !email,
+            phone: !phone,
+            passportNumber: !passportNumber, // ✅ ADDED
+            country: !country,
+            experience: !experience
+          }
         });
       }
 
-      // Validate required files
+      // Validate files
       if (!req.files || !req.files.photo || !req.files.passportImage) {
+        console.log("❌ Missing required files");
         return res.status(400).json({ 
-          message: "Photo and passport image are required",
+          message: "Profile photo and passport image are required",
           filesReceived: req.files ? Object.keys(req.files) : []
         });
       }
 
-      // Process file paths
+      // Check if passport number already exists
+      const existingApplication = await Application.findOne({ 
+        passportNumber: passportNumber.toUpperCase() 
+      });
+      
+      if (existingApplication) {
+        return res.status(400).json({ 
+          message: "An application with this passport number already exists" 
+        });
+      }
+
+      // Process file URLs
       const photoURL = req.files.photo[0].path.replace(/\\/g, "/");
       const passportURL = req.files.passportImage[0].path.replace(/\\/g, "/");
       const certificateURL = req.files.certificate 
         ? req.files.certificate[0].path.replace(/\\/g, "/") 
         : "";
 
-      // Create application
+      console.log("✅ All validations passed, creating application...");
+
+      // Create new application - INCLUDE passportNumber
       const application = new Application({
         name,
         email,
         phone,
+        passportNumber: passportNumber.toUpperCase(), // ✅ ADDED
         country,
         experience,
         photoURL,
@@ -1230,26 +1255,99 @@ app.post(
         certificateURL,
       });
 
+      // Save to database
       await application.save();
 
-      console.log("✅ Application saved successfully");
+      console.log("✅ Application saved successfully:", application._id);
+
       res.status(201).json({ 
         message: "Application submitted successfully!",
         applicationId: application._id
       });
 
     } catch (err) {
-      console.error("❌ Error in /apply route:", err);
+      console.error("❌ Error in /apply route:");
+      console.error("Error name:", err.name);
+      console.error("Error message:", err.message);
+      console.error("Full error:", err);
       
-      // Send detailed error for debugging
       res.status(500).json({ 
         message: "Error submitting application",
         error: err.message,
-        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+        errorType: err.name
       });
     }
   }
 );
+// app.post(
+//   "/apply",
+//   upload.fields([
+//     { name: "photo", maxCount: 1 },
+//     { name: "passportImage", maxCount: 1 },
+//     { name: "certificate", maxCount: 1 },
+//   ]),
+//   async (req, res) => {
+//     try {
+//       console.log("📝 Request body:", req.body);
+//       console.log("📎 Files received:", req.files);
+
+//       const { name, email, phone, country, experience } = req.body;
+
+//       // Validate text fields first
+//       if (!name || !email || !phone || !country || !experience) {
+//         return res.status(400).json({
+//           message: "All text fields are required",
+//           received: { name, email, phone, country, experience }
+//         });
+//       }
+
+//       // Validate required files
+//       if (!req.files || !req.files.photo || !req.files.passportImage) {
+//         return res.status(400).json({
+//           message: "Photo and passport image are required",
+//           filesReceived: req.files ? Object.keys(req.files) : []
+//         });
+//       }
+
+//       // Process file paths
+//       const photoURL = req.files.photo[0].path.replace(/\\/g, "/");
+//       const passportURL = req.files.passportImage[0].path.replace(/\\/g, "/");
+//       const certificateURL = req.files.certificate
+//         ? req.files.certificate[0].path.replace(/\\/g, "/")
+//         : "";
+
+//       // Create application
+//       const application = new Application({
+//         name,
+//         email,
+//         phone,
+//         country,
+//         experience,
+//         photoURL,
+//         passportURL,
+//         certificateURL,
+//       });
+
+//       await application.save();
+
+//       console.log("✅ Application saved successfully");
+//       res.status(201).json({
+//         message: "Application submitted successfully!",
+//         applicationId: application._id
+//       });
+
+//     } catch (err) {
+//       console.error("❌ Error in /apply route:", err);
+
+//       // Send detailed error for debugging
+//       res.status(500).json({
+//         message: "Error submitting application",
+//         error: err.message,
+//         stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+//       });
+//     }
+//   }
+// );
 // app.post(
 //   "/apply",
 //   upload.fields([
