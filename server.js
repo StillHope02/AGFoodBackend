@@ -802,17 +802,32 @@ app.get("/api/check-status/:passportNumber", async (req, res) => {
     }
 
     // Return application details - INCLUDE jobPosition
-    res.json({
+      res.json({
       name: application.name,
       email: application.email,
       phone: application.phone,
       country: application.country,
-      jobPosition: application.jobPosition, // ✅ ADDED
+      jobPosition: application.jobPosition,
       experience: application.experience,
       status: application.status,
       createdAt: application.createdAt,
-      userId: userId, // Important for PDF generation
+      userId: userId,
+      profilePictureURL: application.profilePictureURL, // ✅ ADDED
+      photoURL: application.photoURL,                   // optional, if still needed
+      passportURL: application.passportURL,
+      certificateURL: application.certificateURL,
     });
+    // res.json({
+    //   name: application.name,
+    //   email: application.email,
+    //   phone: application.phone,
+    //   country: application.country,
+    //   jobPosition: application.jobPosition, // ✅ ADDED
+    //   experience: application.experience,
+    //   status: application.status,
+    //   createdAt: application.createdAt,
+    //   userId: userId, // Important for PDF generation
+    // });
 
   } catch (err) {
     console.error("❌ Error checking status:", err);
