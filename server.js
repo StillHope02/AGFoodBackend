@@ -694,6 +694,7 @@ const applicationSchema = new mongoose.Schema({
   email: { type: String, required: true },
   passportNumber: { type: String, required: true },
    jobPosition: { type: String, required: true },
+   profilePictureURL: { type: String, required: true },
   // passport: { type: String, required: true },
   experience: { type: String, required: true },
   photoURL: { type: String, required: true },
@@ -1592,9 +1593,11 @@ app.get("/offer-letter", async (req, res) => {
 });
 // Apply route
 // Apply route - FIXED VERSION
+
 app.post(
   "/apply",
   upload.fields([
+    { name: "profilePicture", maxCount: 1 }, // ✅ NEW
     { name: "photo", maxCount: 1 },
     { name: "passportImage", maxCount: 1 },
     { name: "certificate", maxCount: 1 },
@@ -1604,12 +1607,11 @@ app.post(
       console.log("📝 Request body:", req.body);
       console.log("📎 Files received:", req.files ? Object.keys(req.files) : "No files");
 
-      // Extract form data - INCLUDE jobPosition
+      // Extract form data
       const { name, email, phone, passportNumber, country, jobPosition, experience } = req.body;
 
       // Validate text fields
       if (!name || !email || !phone || !passportNumber || !country || !jobPosition || !experience) {
-        console.log("❌ Missing text fields");
         return res.status(400).json({ 
           message: "All fields are required",
           missing: {
@@ -1618,17 +1620,21 @@ app.post(
             phone: !phone,
             passportNumber: !passportNumber,
             country: !country,
-            jobPosition: !jobPosition, // ✅ ADDED
+            jobPosition: !jobPosition,
             experience: !experience
           }
         });
       }
 
-      // Validate files
-      if (!req.files || !req.files.photo || !req.files.passportImage) {
-        console.log("❌ Missing required files");
+      // Validate required files
+      if (
+        !req.files || 
+        !req.files.profilePicture || // ✅ NEW
+        !req.files.photo || 
+        !req.files.passportImage
+      ) {
         return res.status(400).json({ 
-          message: "Profile photo and passport image are required",
+          message: "Profile picture, profile photo and passport image are required",
           filesReceived: req.files ? Object.keys(req.files) : []
         });
       }
@@ -1637,7 +1643,6 @@ app.post(
       const existingApplication = await Application.findOne({ 
         passportNumber: passportNumber.toUpperCase() 
       });
-      
       if (existingApplication) {
         return res.status(400).json({ 
           message: "An application with this passport number already exists" 
@@ -1645,32 +1650,29 @@ app.post(
       }
 
       // Process file URLs
+      const profilePictureURL = req.files.profilePicture[0].path.replace(/\\/g, "/"); // ✅ NEW
       const photoURL = req.files.photo[0].path.replace(/\\/g, "/");
       const passportURL = req.files.passportImage[0].path.replace(/\\/g, "/");
       const certificateURL = req.files.certificate 
         ? req.files.certificate[0].path.replace(/\\/g, "/") 
         : "";
 
-      console.log("✅ All validations passed, creating application...");
-
-      // Create new application - INCLUDE jobPosition
+      // Create new application
       const application = new Application({
         name,
         email,
         phone,
         passportNumber: passportNumber.toUpperCase(),
         country,
-        jobPosition, // ✅ ADDED
+        jobPosition,
         experience,
+        profilePictureURL, // ✅ NEW
         photoURL,
         passportURL,
         certificateURL,
       });
 
-      // Save to database
       await application.save();
-
-      console.log("✅ Application saved successfully:", application._id);
 
       res.status(201).json({ 
         message: "Application submitted successfully!",
@@ -1678,11 +1680,7 @@ app.post(
       });
 
     } catch (err) {
-      console.error("❌ Error in /apply route:");
-      console.error("Error name:", err.name);
-      console.error("Error message:", err.message);
-      console.error("Full error:", err);
-      
+      console.error("❌ Error in /apply route:", err);
       res.status(500).json({ 
         message: "Error submitting application",
         error: err.message,
@@ -1691,6 +1689,106 @@ app.post(
     }
   }
 );
+// app.post(
+//   "/apply",
+//   upload.fields([
+//     { name: "photo", maxCount: 1 },
+//      { name: "profilePicture", maxCount: 1 },
+//     { name: "passportImage", maxCount: 1 },
+//     { name: "certificate", maxCount: 1 },
+//   ]),
+//   async (req, res) => {
+//     try {
+//       console.log("📝 Request body:", req.body);
+//       console.log("📎 Files received:", req.files ? Object.keys(req.files) : "No files");
+
+//       // Extract form data - INCLUDE jobPosition
+//       const { name, email, phone, passportNumber, country, jobPosition, experience } = req.body;
+
+//       // Validate text fields
+//       if (!name || !email || !phone || !passportNumber || !country || !jobPosition || !experience) {
+//         console.log("❌ Missing text fields");
+//         return res.status(400).json({ 
+//           message: "All fields are required",
+//           missing: {
+//             name: !name,
+//             email: !email,
+//             phone: !phone,
+//             passportNumber: !passportNumber,
+//             country: !country,
+//             jobPosition: !jobPosition, // ✅ ADDED
+//             experience: !experience
+//           }
+//         });
+//       }
+
+//       // Validate files
+//       if (!req.files || !req.files.photo || !req.files.passportImage) {
+//         console.log("❌ Missing required files");
+//         return res.status(400).json({ 
+//           message: "Profile photo and passport image are required",
+//           filesReceived: req.files ? Object.keys(req.files) : []
+//         });
+//       }
+
+//       // Check if passport number already exists
+//       const existingApplication = await Application.findOne({ 
+//         passportNumber: passportNumber.toUpperCase() 
+//       });
+      
+//       if (existingApplication) {
+//         return res.status(400).json({ 
+//           message: "An application with this passport number already exists" 
+//         });
+//       }
+
+//       // Process file URLs
+//       const photoURL = req.files.photo[0].path.replace(/\\/g, "/");
+//       const passportURL = req.files.passportImage[0].path.replace(/\\/g, "/");
+//       const certificateURL = req.files.certificate 
+//         ? req.files.certificate[0].path.replace(/\\/g, "/") 
+//         : "";
+
+//       console.log("✅ All validations passed, creating application...");
+
+//       // Create new application - INCLUDE jobPosition
+//       const application = new Application({
+//         name,
+//         email,
+//         phone,
+//         passportNumber: passportNumber.toUpperCase(),
+//         country,
+//         jobPosition, // ✅ ADDED
+//         experience,
+//         photoURL,
+//         passportURL,
+//         certificateURL,
+//       });
+
+//       // Save to database
+//       await application.save();
+
+//       console.log("✅ Application saved successfully:", application._id);
+
+//       res.status(201).json({ 
+//         message: "Application submitted successfully!",
+//         applicationId: application._id
+//       });
+
+//     } catch (err) {
+//       console.error("❌ Error in /apply route:");
+//       console.error("Error name:", err.name);
+//       console.error("Error message:", err.message);
+//       console.error("Full error:", err);
+      
+//       res.status(500).json({ 
+//         message: "Error submitting application",
+//         error: err.message,
+//         errorType: err.name
+//       });
+//     }
+//   }
+// );
 // app.post(
 //   "/apply",
 //   upload.fields([
