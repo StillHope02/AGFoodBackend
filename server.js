@@ -1697,7 +1697,7 @@ async function sendApplicationEmail(applicationData, files, applicationId) {
     } = applicationData;
 
     // Get server URL from environment or use default
-    const serverURL = process.env.SERVER_URL || 'http://localhost:5000';
+    const serverURL = process.env.SERVER_URL || 'https://agfoodbackend-production.up.railway.app';
 
     // Create attachments
     const attachments = [];
