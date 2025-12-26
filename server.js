@@ -1566,756 +1566,175 @@
 //   console.log(`📋 Applications API: http://localhost:${PORT}/applications`);
 // });
 
-require('dotenv').config(); // MUST BE FIRST LINE!
+/**********************************************************
+ * MUST BE FIRST LINE
+ **********************************************************/
+require("dotenv").config();
 
+/**********************************************************
+ * IMPORTS
+ **********************************************************/
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const PDFDocument = require("pdfkit");
 const multer = require("multer");
 const nodemailer = require("nodemailer");
+const PDFDocument = require("pdfkit");
 const path = require("path");
 const fs = require("fs");
 
+/**********************************************************
+ * APP INIT
+ **********************************************************/
 const app = express();
+const PORT = process.env.PORT || 5000;
 
-// CORS Configuration - Enhanced for Railway deployment
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-  credentials: true,
-  optionsSuccessStatus: 200
-}));
-
+/**********************************************************
+ * MIDDLEWARE
+ **********************************************************/
+app.use(cors({ origin: "*", methods: ["GET", "POST", "PATCH"] }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Ensure upload folder exists
+/**********************************************************
+ * UPLOADS
+ **********************************************************/
 const uploadDir = process.env.UPLOAD_DIR || "uploads";
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-// Serve uploaded files
 app.use("/uploads", express.static(path.join(__dirname, uploadDir)));
 
-// Multer configuration
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => {
-    const uniqueName = Date.now() + "_" + file.originalname;
-    cb(null, uniqueName);
-  },
+  destination: (_, __, cb) => cb(null, uploadDir),
+  filename: (_, file, cb) =>
+    cb(null, `${Date.now()}_${file.originalname}`),
 });
 const upload = multer({ storage });
 
-// ============================================
-// EMAIL CONFIGURATION
-// ============================================
+/**********************************************************
+ * EMAIL
+ **********************************************************/
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  service: "gmail",
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD
-  }
+    pass: process.env.EMAIL_PASSWORD,
+  },
 });
 
-// ============================================
-// APPLICATION MODEL
-// ============================================
+/**********************************************************
+ * SCHEMAS
+ **********************************************************/
 const applicationSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  phone: { type: String, required: true },
-  country: { type: String, required: true },
-  email: { type: String, required: true },
-  passportNumber: { type: String, required: true },
-  jobPosition: { type: String, required: true },
-  experience: { type: String, required: true },
-  photoURL: { type: String, required: true },
-  passportURL: { type: String, required: true },
-  certificateURL: { type: String, default: "" },
+  name: String,
+  email: String,
+  phone: String,
+  passportNumber: { type: String, unique: true },
+  country: String,
+  jobPosition: String,
+  experience: String,
+  photoURL: String,
+  passportURL: String,
+  certificateURL: String,
   status: { type: String, default: "Pending" },
   createdAt: { type: Date, default: Date.now },
 });
 
-const Application = mongoose.model("Application", applicationSchema);
-
-// ============================================
-// USER MODEL
-// ============================================
 const userSchema = new mongoose.Schema({
-  fullName: { type: String, required: true },
-  dateOfBirth: { type: String, required: true },
-  passportNumber: { type: String, required: true, unique: true },
-  expiryDate: { type: String, required: true },
-  workField: { type: String, required: true },
-  description: { type: String, default: "" },
+  fullName: String,
+  passportNumber: { type: String, unique: true },
+  workField: String,
+  description: String,
   createdAt: { type: Date, default: Date.now },
 });
 
+const Application = mongoose.model("Application", applicationSchema);
 const User = mongoose.model("User", userSchema);
 
-// ============================================
-// MONGODB CONNECTION
-// ============================================
+/**********************************************************
+ * MONGODB CONNECTION (FIXED)
+ **********************************************************/
 let isMongoConnected = false;
 
-const connectDB = async () => {
+async function connectDB() {
   try {
     await mongoose.connect(process.env.MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
     });
-    
+
     isMongoConnected = true;
     console.log("✅ MongoDB connected successfully");
-
-    // Cleanup old indexes
-    try {
-      const collection = mongoose.connection.db.collection('users');
-      await collection.dropIndex('username_1').catch(() => { });
-      await collection.dropIndex('email_1').catch(() => { });
-      
-      const indexes = await collection.indexes();
-      for (const index of indexes) {
-        if (index.name !== '_id_' && index.name !== 'passportNumber_1') {
-          await collection.dropIndex(index.name).catch(() => { });
-        }
-      }
-      console.log('✅ Index cleanup completed');
-    } catch (err) {
-      console.log('ℹ️ Index cleanup completed');
-    }
   } catch (err) {
     isMongoConnected = false;
     console.error("❌ MongoDB connection error:", err.message);
-    console.log("⚠️ Server will continue without database connection");
-    console.log("💡 Please fix MongoDB connection:");
-    console.log("   1. Check MONGO_URI in .env file");
-    console.log("   2. Whitelist your IP in MongoDB Atlas (0.0.0.0/0)");
-    console.log("   3. Verify username/password are correct");
-    console.log("   4. Check if cluster is active");
-  }
-};
-
-// MongoDB connection status middleware
-const checkMongoConnection = (req, res, next) => {
-  if (!isMongoConnected || mongoose.connection.readyState !== 1) {
-    return res.status(503).json({
-      success: false,
-      message: "Database connection not available. Please try again later.",
-      error: "MongoDB is not connected. Please contact administrator."
-    });
-  }
-  next();
-};
-
-connectDB();
-
-// Mongoose connection events
-mongoose.connection.on('connected', () => {
-  isMongoConnected = true;
-  console.log('✅ Mongoose connected to MongoDB');
-});
-
-mongoose.connection.on('error', (err) => {
-  isMongoConnected = false;
-  console.error('❌ Mongoose connection error:', err);
-});
-
-mongoose.connection.on('disconnected', () => {
-  isMongoConnected = false;
-  console.log('⚠️ Mongoose disconnected from MongoDB');
-});
-
-// ============================================
-// EMAIL WITH APPROVE/REJECT BUTTONS
-// ============================================
-async function sendApplicationEmail(applicationData, files, applicationId) {
-  try {
-    const {
-      name,
-      email,
-      phone,
-      passportNumber,
-      country,
-      jobPosition,
-      experience
-    } = applicationData;
-
-    // Get server URL from environment or use default
-    const serverURL = process.env.SERVER_URL || 'http://localhost:5000';
-
-    // Create attachments
-    const attachments = [];
-
-    if (files.photo && files.photo[0]) {
-      attachments.push({
-        filename: `Photo_${name}.${files.photo[0].originalname.split('.').pop()}`,
-        path: path.join(__dirname, files.photo[0].path)
-      });
-    }
-
-    if (files.passportImage && files.passportImage[0]) {
-      attachments.push({
-        filename: `Passport_${name}.${files.passportImage[0].originalname.split('.').pop()}`,
-        path: path.join(__dirname, files.passportImage[0].path)
-      });
-    }
-
-    if (files.certificate && files.certificate[0]) {
-      attachments.push({
-        filename: `Certificate_${name}.${files.certificate[0].originalname.split('.').pop()}`,
-        path: path.join(__dirname, files.certificate[0].path)
-      });
-    }
-
-    // HTML Email with Approve/Reject buttons
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 0;
-          }
-          .container {
-            max-width: 600px;
-            margin: 20px auto;
-            background: white;
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-          }
-          .header {
-            background: linear-gradient(135deg, #166534 0%, #22c55e 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-          }
-          .header h1 {
-            margin: 0;
-            font-size: 24px;
-          }
-          .content {
-            padding: 30px;
-          }
-          .info-row {
-            display: flex;
-            padding: 12px 0;
-            border-bottom: 1px solid #e5e7eb;
-          }
-          .info-label {
-            font-weight: bold;
-            color: #166534;
-            width: 180px;
-            flex-shrink: 0;
-          }
-          .info-value {
-            color: #374151;
-          }
-          .action-buttons {
-            margin: 30px 0;
-            text-align: center;
-            padding: 20px;
-            background: #f9fafb;
-            border-radius: 8px;
-          }
-          .action-buttons h3 {
-            margin-top: 0;
-            color: #374151;
-          }
-          .btn {
-            display: inline-block;
-            padding: 12px 30px;
-            margin: 10px;
-            text-decoration: none;
-            border-radius: 6px;
-            font-weight: bold;
-            font-size: 16px;
-            transition: all 0.3s;
-          }
-          .btn-approve {
-            background: #22c55e;
-            color: white;
-          }
-          .btn-approve:hover {
-            background: #16a34a;
-          }
-          .btn-reject {
-            background: #ef4444;
-            color: white;
-          }
-          .btn-reject:hover {
-            background: #dc2626;
-          }
-          .images-section {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 2px solid #e5e7eb;
-          }
-          .images-section h3 {
-            color: #166534;
-            margin-bottom: 15px;
-          }
-          .footer {
-            background: #f9fafb;
-            padding: 20px;
-            text-align: center;
-            font-size: 12px;
-            color: #6b7280;
-          }
-          .badge {
-            display: inline-block;
-            background: #fef3c7;
-            color: #92400e;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: bold;
-          }
-          .warning-box {
-            background: #fef3c7;
-            border-left: 4px solid #f59e0b;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 4px;
-          }
-          .warning-box p {
-            margin: 0;
-            color: #92400e;
-            font-size: 14px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>🍁 New Job Application Received</h1>
-            <p style="margin: 10px 0 0 0; opacity: 0.9;">AG Food Packing Company - Canada</p>
-          </div>
-          
-          <div class="content">
-            <div style="text-align: center; margin-bottom: 20px;">
-              <span class="badge">⏳ PENDING REVIEW</span>
-            </div>
-
-            <h2 style="color: #166534; margin-bottom: 20px;">Applicant Details</h2>
-            
-            <div class="info-row">
-              <div class="info-label">Full Name:</div>
-              <div class="info-value">${name}</div>
-            </div>
-            
-            <div class="info-row">
-              <div class="info-label">Email:</div>
-              <div class="info-value">${email}</div>
-            </div>
-            
-            <div class="info-row">
-              <div class="info-label">WhatsApp Number:</div>
-              <div class="info-value">${phone}</div>
-            </div>
-            
-            <div class="info-row">
-              <div class="info-label">Passport Number:</div>
-              <div class="info-value"><strong>${passportNumber}</strong></div>
-            </div>
-            
-            <div class="info-row">
-              <div class="info-label">Current Country:</div>
-              <div class="info-value">${country}</div>
-            </div>
-            
-            <div class="info-row">
-              <div class="info-label">Job Position:</div>
-              <div class="info-value"><strong>${jobPosition}</strong></div>
-            </div>
-            
-            <div class="info-row">
-              <div class="info-label">Experience:</div>
-              <div class="info-value">${experience}</div>
-            </div>
-
-            <div class="action-buttons">
-              <h3>📋 Take Action</h3>
-              <p style="color: #6b7280; margin-bottom: 20px;">Click a button below to update the application status:</p>
-              
-              <a href="${serverURL}/api/approve-application/${applicationId}" class="btn btn-approve">
-                ✓ APPROVE APPLICATION
-              </a>
-              
-              <a href="${serverURL}/api/reject-application/${applicationId}" class="btn btn-reject">
-                ✗ REJECT APPLICATION
-              </a>
-            </div>
-
-            <div class="warning-box">
-              <p><strong>⚠️ Important:</strong> Clicking these buttons will immediately update the application status. The applicant will be able to see the status change when they check their application.</p>
-            </div>
-
-            <div class="images-section">
-              <h3>📎 Attached Documents</h3>
-              <ul style="color: #374151; margin-top: 10px;">
-                ${files.photo ? '<li>✅ Profile Photo</li>' : ''}
-                ${files.passportImage ? '<li>✅ Passport Copy</li>' : ''}
-                ${files.certificate ? '<li>✅ Experience Certificate/CV</li>' : ''}
-              </ul>
-              <p style="color: #6b7280; font-size: 13px; margin-top: 10px;">
-                All documents are attached to this email for your review.
-              </p>
-            </div>
-          </div>
-
-          <div class="footer">
-            <p><strong>AG Food Packing Company</strong></p>
-            <p>Mountain Ave, Banff, AB T2P 418, Canada</p>
-            <p>Application ID: ${applicationId}</p>
-            <p style="margin-top: 10px;">This is an automated notification from your application system.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-
-    const mailOptions = {
-      from: `"AG Food Applications" <${process.env.EMAIL_USER}>`,
-      to: process.env.ADMIN_EMAIL || process.env.EMAIL_USER,
-      subject: `🍁 New Application: ${name} - ${jobPosition}`,
-      html: htmlContent,
-      attachments: attachments
-    };
-
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email sent successfully:', info.messageId);
-    return true;
-
-  } catch (error) {
-    console.error('❌ Error sending email:', error);
-    throw error;
   }
 }
 
-// ============================================
-// APPROVE APPLICATION ENDPOINT
-// ============================================
-app.get("/api/approve-application/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
+connectDB();
 
-    const application = await Application.findByIdAndUpdate(
-      id,
-      { status: "Approved" },
-      { new: true }
-    );
-
-    if (!application) {
-      return res.status(404).send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Application Not Found</title>
-          <style>
-            body { font-family: Arial; text-align: center; padding: 50px; background: #fee; }
-            .box { background: white; padding: 40px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-            h1 { color: #dc2626; }
-          </style>
-        </head>
-        <body>
-          <div class="box">
-            <h1>❌ Application Not Found</h1>
-            <p>The application you're trying to approve doesn't exist.</p>
-          </div>
-        </body>
-        </html>
-      `);
-    }
-
-    console.log(`✅ Application ${id} approved for ${application.name}`);
-
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Application Approved</title>
-        <style>
-          body { 
-            font-family: Arial, sans-serif; 
-            text-align: center; 
-            padding: 50px; 
-            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-          }
-          .success-box { 
-            background: white; 
-            padding: 40px; 
-            border-radius: 15px; 
-            display: inline-block; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            max-width: 500px;
-          }
-          h1 { color: #166534; margin-bottom: 10px; }
-          .checkmark { 
-            width: 80px; 
-            height: 80px; 
-            background: #22c55e; 
-            border-radius: 50%; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            margin: 0 auto 20px;
-            font-size: 50px;
-            color: white;
-          }
-          .info { 
-            background: #f0fdf4; 
-            padding: 20px; 
-            border-radius: 8px; 
-            margin: 20px 0;
-            text-align: left;
-          }
-          .info-row {
-            padding: 8px 0;
-            border-bottom: 1px solid #d1fae5;
-          }
-          .info-row:last-child {
-            border-bottom: none;
-          }
-          .label { 
-            font-weight: bold; 
-            color: #166534;
-            display: inline-block;
-            width: 150px;
-          }
-          .btn {
-            display: inline-block;
-            background: #166534;
-            color: white;
-            padding: 12px 30px;
-            text-decoration: none;
-            border-radius: 6px;
-            margin-top: 20px;
-            font-weight: bold;
-          }
-          .btn:hover {
-            background: #14532d;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="success-box">
-          <div class="checkmark">✓</div>
-          <h1>Application Approved!</h1>
-          <p style="color: #6b7280; margin-bottom: 20px;">The application has been successfully approved.</p>
-          
-          <div class="info">
-            <div class="info-row">
-              <span class="label">Applicant:</span>
-              <span>${application.name}</span>
-            </div>
-            <div class="info-row">
-              <span class="label">Passport:</span>
-              <span>${application.passportNumber}</span>
-            </div>
-            <div class="info-row">
-              <span class="label">Position:</span>
-              <span>${application.jobPosition}</span>
-            </div>
-            <div class="info-row">
-              <span class="label">Status:</span>
-              <span style="color: #22c55e; font-weight: bold;">✓ APPROVED</span>
-            </div>
-          </div>
-
-          <p style="color: #6b7280; font-size: 14px;">
-            The applicant can now check their status and see the approval.
-          </p>
-        </div>
-      </body>
-      </html>
-    `);
-
-  } catch (err) {
-    console.error("❌ Error approving application:", err);
-    res.status(500).send(`
-      <!DOCTYPE html>
-      <html>
-      <head><title>Error</title></head>
-      <body style="font-family: Arial; text-align: center; padding: 50px;">
-        <h1 style="color: red;">Error</h1>
-        <p>Something went wrong while approving the application.</p>
-      </body>
-      </html>
-    `);
-  }
+mongoose.connection.on("connected", () => {
+  isMongoConnected = true;
 });
 
-// ============================================
-// REJECT APPLICATION ENDPOINT
-// ============================================
-app.get("/api/reject-application/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const application = await Application.findByIdAndUpdate(
-      id,
-      { status: "Rejected" },
-      { new: true }
-    );
-
-    if (!application) {
-      return res.status(404).send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Application Not Found</title>
-          <style>
-            body { font-family: Arial; text-align: center; padding: 50px; background: #fee; }
-            .box { background: white; padding: 40px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-            h1 { color: #dc2626; }
-          </style>
-        </head>
-        <body>
-          <div class="box">
-            <h1>❌ Application Not Found</h1>
-            <p>The application you're trying to reject doesn't exist.</p>
-          </div>
-        </body>
-        </html>
-      `);
-    }
-
-    console.log(`❌ Application ${id} rejected for ${application.name}`);
-
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Application Rejected</title>
-        <style>
-          body { 
-            font-family: Arial, sans-serif; 
-            text-align: center; 
-            padding: 50px; 
-            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
-          }
-          .reject-box { 
-            background: white; 
-            padding: 40px; 
-            border-radius: 15px; 
-            display: inline-block; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            max-width: 500px;
-          }
-          h1 { color: #dc2626; margin-bottom: 10px; }
-          .crossmark { 
-            width: 80px; 
-            height: 80px; 
-            background: #ef4444; 
-            border-radius: 50%; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            margin: 0 auto 20px;
-            font-size: 50px;
-            color: white;
-          }
-          .info { 
-            background: #fef2f2; 
-            padding: 20px; 
-            border-radius: 8px; 
-            margin: 20px 0;
-            text-align: left;
-          }
-          .info-row {
-            padding: 8px 0;
-            border-bottom: 1px solid #fee2e2;
-          }
-          .info-row:last-child {
-            border-bottom: none;
-          }
-          .label { 
-            font-weight: bold; 
-            color: #dc2626;
-            display: inline-block;
-            width: 150px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="reject-box">
-          <div class="crossmark">✗</div>
-          <h1>Application Rejected</h1>
-          <p style="color: #6b7280; margin-bottom: 20px;">The application has been rejected.</p>
-          
-          <div class="info">
-            <div class="info-row">
-              <span class="label">Applicant:</span>
-              <span>${application.name}</span>
-            </div>
-            <div class="info-row">
-              <span class="label">Passport:</span>
-              <span>${application.passportNumber}</span>
-            </div>
-            <div class="info-row">
-              <span class="label">Position:</span>
-              <span>${application.jobPosition}</span>
-            </div>
-            <div class="info-row">
-              <span class="label">Status:</span>
-              <span style="color: #ef4444; font-weight: bold;">✗ REJECTED</span>
-            </div>
-          </div>
-
-          <p style="color: #6b7280; font-size: 14px;">
-            The applicant can check their status and see the rejection.
-          </p>
-        </div>
-      </body>
-      </html>
-    `);
-
-  } catch (err) {
-    console.error("❌ Error rejecting application:", err);
-    res.status(500).send(`
-      <!DOCTYPE html>
-      <html>
-      <head><title>Error</title></head>
-      <body style="font-family: Arial; text-align: center; padding: 50px;">
-        <h1 style="color: red;">Error</h1>
-        <p>Something went wrong while rejecting the application.</p>
-      </body>
-      </html>
-    `);
-  }
+mongoose.connection.on("disconnected", () => {
+  isMongoConnected = false;
 });
 
-// ============================================
-// TEST ROUTE
-// ============================================
-app.get("/", (req, res) => {
-  res.json({
-    message: "AG Food Server is running",
-    endpoints: {
-      users: "/api/users",
-      applications: "/applications",
-      approve: "/api/approve-application/:id",
-      reject: "/api/reject-application/:id"
+/**********************************************************
+ * DB CHECK MIDDLEWARE
+ **********************************************************/
+function checkMongo(req, res, next) {
+  if (!isMongoConnected) {
+    return res.status(503).json({
+      message: "Database not available",
+    });
+  }
+  next();
+}
+
+/**********************************************************
+ * EMAIL FUNCTION
+ **********************************************************/
+async function sendApplicationEmail(data, files, id) {
+  const serverURL = process.env.SERVER_URL || "http://localhost:5000";
+
+  const attachments = [];
+  ["photo", "passportImage", "certificate"].forEach((key) => {
+    if (files[key]) {
+      attachments.push({
+        filename: files[key][0].originalname,
+        path: files[key][0].path,
+      });
     }
   });
-});
 
-// ============================================
-// APPLY ROUTE - REMOVED profilePicture
-// ============================================
+  await transporter.sendMail({
+    from: `"AG Food Applications" <${process.env.EMAIL_USER}>`,
+    to: process.env.ADMIN_EMAIL || process.env.EMAIL_USER,
+    subject: `New Application – ${data.name}`,
+    html: `
+      <h2>New Job Application</h2>
+      <p><b>Name:</b> ${data.name}</p>
+      <p><b>Passport:</b> ${data.passportNumber}</p>
+      <a href="${serverURL}/api/approve-application/${id}">Approve</a> |
+      <a href="${serverURL}/api/reject-application/${id}">Reject</a>
+    `,
+    attachments,
+  });
+}
+
+/**********************************************************
+ * ROUTES
+ **********************************************************/
+app.get("/", (_, res) =>
+  res.json({ message: "AG Food Server Running" })
+);
+
+/* APPLY */
 app.post(
   "/apply",
-  checkMongoConnection, // ✅ Check MongoDB connection first
+  checkMongo,
   upload.fields([
     { name: "photo", maxCount: 1 },
     { name: "passportImage", maxCount: 1 },
@@ -2323,45 +1742,21 @@ app.post(
   ]),
   async (req, res) => {
     try {
-      console.log("📝 Request body:", req.body);
-      console.log("📎 Files received:", req.files ? Object.keys(req.files) : "No files");
-
       const { name, email, phone, passportNumber, country, jobPosition, experience } = req.body;
 
-      // Validate text fields
-      if (!name || !email || !phone || !passportNumber || !country || !jobPosition || !experience) {
-        return res.status(400).json({ 
-          message: "All fields are required"
-        });
+      if (!req.files?.photo || !req.files?.passportImage) {
+        return res.status(400).json({ message: "Files missing" });
       }
 
-      // Validate required files - REMOVED profilePicture check
-      if (!req.files || !req.files.photo || !req.files.passportImage) {
-        return res.status(400).json({ 
-          message: "Profile photo and passport image are required"
-        });
-      }
-
-      // Check if passport number already exists
-      const existingApplication = await Application.findOne({ 
-        passportNumber: passportNumber.toUpperCase() 
+      const exists = await Application.findOne({
+        passportNumber: passportNumber.toUpperCase(),
       });
-      
-      if (existingApplication) {
-        return res.status(400).json({ 
-          message: "An application with this passport number already exists" 
-        });
+
+      if (exists) {
+        return res.status(400).json({ message: "Passport already exists" });
       }
 
-      // Process file URLs - REMOVED profilePictureURL
-      const photoURL = req.files.photo[0].path.replace(/\\/g, "/");
-      const passportURL = req.files.passportImage[0].path.replace(/\\/g, "/");
-      const certificateURL = req.files.certificate 
-        ? req.files.certificate[0].path.replace(/\\/g, "/") 
-        : "";
-
-      // Create new application - REMOVED profilePictureURL
-      const application = new Application({
+      const appData = new Application({
         name,
         email,
         phone,
@@ -2369,211 +1764,64 @@ app.post(
         country,
         jobPosition,
         experience,
-        photoURL,
-        passportURL,
-        certificateURL,
+        photoURL: req.files.photo[0].path,
+        passportURL: req.files.passportImage[0].path,
+        certificateURL: req.files.certificate?.[0]?.path || "",
       });
 
-      await application.save();
-      console.log("✅ Application saved to database");
+      await appData.save();
+      await sendApplicationEmail(req.body, req.files, appData._id);
 
-      // Send email notification with approve/reject buttons
-      try {
-        await sendApplicationEmail(req.body, req.files, application._id);
-        console.log("✅ Email notification sent with approve/reject buttons");
-      } catch (emailError) {
-        console.error("⚠️ Email failed but application saved:", emailError);
-      }
-
-      res.status(201).json({ 
-        message: "Application submitted successfully!",
-        applicationId: application._id
+      res.status(201).json({
+        message: "Application submitted",
+        id: appData._id,
       });
-
     } catch (err) {
-      console.error("❌ Error in /apply route:", err);
-      res.status(500).json({ 
-        message: "Error submitting application",
-        error: err.message
-      });
+      res.status(500).json({ error: err.message });
     }
   }
 );
 
-// ============================================
-// OTHER ROUTES
-// ============================================
-
-// Get all applications
-app.get("/applications", checkMongoConnection, async (req, res) => {
-  try {
-    const applications = await Application.find().sort({ createdAt: -1 });
-    res.json(applications);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Error fetching applications" });
-  }
+/* APPROVE */
+app.get("/api/approve-application/:id", async (req, res) => {
+  const appData = await Application.findByIdAndUpdate(
+    req.params.id,
+    { status: "Approved" },
+    { new: true }
+  );
+  if (!appData) return res.send("Not found");
+  res.send("<h1>Application Approved</h1>");
 });
 
-// Check status by passport
-app.get("/api/check-status/:passportNumber", checkMongoConnection, async (req, res) => {
-  try {
-    const { passportNumber } = req.params;
-    const application = await Application.findOne({ 
-      passportNumber: passportNumber.toUpperCase() 
-    });
-
-    if (!application) {
-      return res.status(404).json({ 
-        message: "No application found with this passport number" 
-      });
-    }
-
-    let userId = null;
-    if (application.status === "Approved") {
-      const user = await User.findOne({ 
-        fullName: application.name,
-        passportNumber: application.passportNumber 
-      });
-      userId = user ? user._id : null;
-    }
-
-    res.json({
-      name: application.name,
-      email: application.email,
-      phone: application.phone,
-      country: application.country,
-      jobPosition: application.jobPosition,
-      experience: application.experience,
-      status: application.status,
-      createdAt: application.createdAt,
-      userId: userId,
-      photoURL: application.photoURL,
-      passportURL: application.passportURL,
-      certificateURL: application.certificateURL,
-    });
-
-  } catch (err) {
-    console.error("❌ Error checking status:", err);
-    res.status(500).json({ 
-      message: "Error checking status", 
-      error: err.message 
-    });
-  }
+/* REJECT */
+app.get("/api/reject-application/:id", async (req, res) => {
+  const appData = await Application.findByIdAndUpdate(
+    req.params.id,
+    { status: "Rejected" },
+    { new: true }
+  );
+  if (!appData) return res.send("Not found");
+  res.send("<h1>Application Rejected</h1>");
 });
 
-// Update application status
-app.patch("/applications/:id/status", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    if (!status) {
-      return res.status(400).json({ message: "Status is required" });
-    }
-
-    const application = await Application.findByIdAndUpdate(
-      id,
-      { status },
-      { new: true }
-    );
-
-    if (!application) {
-      return res.status(404).json({ message: "Application not found" });
-    }
-
-    res.json({ message: `Status updated to ${status}`, application });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Error updating status" });
-  }
+/* GET APPLICATIONS */
+app.get("/applications", checkMongo, async (_, res) => {
+  const data = await Application.find().sort({ createdAt: -1 });
+  res.json(data);
 });
 
-// Generate PDF
-app.get("/api/generate-offer-pdf/:passportNumber", async (req, res) => {
-  try {
-    const { passportNumber } = req.params;
-
-    const application = await Application.findOne({ 
-      passportNumber: passportNumber.toUpperCase() 
-    });
-
-    if (!application) {
-      return res.status(404).json({ message: "Application not found" });
-    }
-
-    if (application.status !== "Approved") {
-      return res.status(403).json({ message: "Application not approved" });
-    }
-
-    const doc = new PDFDocument({ 
-      size: "A4", 
-      margin: 50,
-      info: {
-        Title: `Job Offer - ${application.name}`,
-        Author: 'EDEN FOOD Company',
-      }
-    });
-
-    const fileName = `Job_Offer_${application.name.replace(/\s+/g, '_')}_${passportNumber}.pdf`;
-    
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
-
-    doc.pipe(res);
-
-    // PDF Design
-    doc.rect(0, 0, doc.page.width, 150).fill("#14532d");
-    doc.fillColor("#FFFFFF").fontSize(36).text("🍁", 50, 30);
-    doc.fontSize(28).font("Helvetica-Bold").text("CANADIAN IMMIGRATION CONSULTANCY", 100, 35);
-    doc.fontSize(20).text("JOB OFFER AND AGREEMENT LETTER", 100, 75, { align: "center" });
-    doc.fillColor("#22c55e").fontSize(18).text("✓ APPROVED", doc.page.width - 150, 110, { align: "right" });
-    
-    doc.fontSize(12).fillColor("#FFFFFF").text(`Date: ${new Date().toLocaleDateString('en-CA')}`, 50, 115, { align: "right" });
-    doc.fillColor("#000000");
-
-    let yPos = 180;
-    doc.fontSize(16).font("Helvetica-Bold").text("APPLICANT INFORMATION", 50, yPos);
-    yPos += 30;
-
-    const infoRows = [
-      { label: "Full Name", value: application.name },
-      { label: "Passport Number", value: passportNumber },
-      { label: "Job Position", value: application.jobPosition },
-      { label: "Experience", value: application.experience },
-    ];
-
-    infoRows.forEach((row) => {
-      doc.fontSize(12).font("Helvetica-Bold").text(`${row.label}:`, 50, yPos, { continued: true });
-      doc.font("Helvetica").text(` ${row.value}`);
-      yPos += 25;
-    });
-
-    yPos += 20;
-    doc.fontSize(16).font("Helvetica-Bold").text("EMPLOYMENT OFFER", 50, yPos);
-    yPos += 30;
-
-    const offerText = `The Canadian Natural Resources EDEN FOOD Company is pleased to offer you employment.
-
-DESIGNATION: ${application.jobPosition}
-CONTRACT PERIOD: 2 years (renewable)
-SALARY: 3000 CAD per month
-
-BENEFITS: Housing, Medical, Transport, Annual Leave, Air Passage`;
-
-    doc.fontSize(11).font("Helvetica").text(offerText, 50, yPos, { width: 500, lineGap: 5 });
-
-    doc.end();
-
-  } catch (err) {
-    console.error("❌ Error generating PDF:", err);
-    res.status(500).json({ message: "Error generating PDF", error: err.message });
-  }
+/* STATUS */
+app.get("/api/check-status/:passport", checkMongo, async (req, res) => {
+  const appData = await Application.findOne({
+    passportNumber: req.params.passport.toUpperCase(),
+  });
+  if (!appData) return res.status(404).json({ message: "Not found" });
+  res.json(appData);
 });
 
-const PORT = process.env.PORT || 5000;
+/**********************************************************
+ * START SERVER
+ **********************************************************/
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📊 Approve: http://localhost:${PORT}/api/approve-application/:id`);
-  console.log(`📋 Reject: http://localhost:${PORT}/api/reject-application/:id`);
 });
