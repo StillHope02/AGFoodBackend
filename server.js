@@ -1321,7 +1321,7 @@ const applicationSchema = new mongoose.Schema({
   email: { type: String, required: true },
   passportNumber: { type: String, required: true },
   jobPosition: { type: String, required: true },
-  profilePictureURL: { type: String, required: true },
+  // profilePictureURL: { type: String, required: true },
   experience: { type: String, required: true },
   photoURL: { type: String, required: true },
   passportURL: { type: String, required: true },
@@ -1403,7 +1403,7 @@ app.post(
       }
 
       // Validate required files
-      if (!req.files || !req.files.profilePicture || !req.files.photo || !req.files.passportImage) {
+      if (!req.files || !req.files.photo || !req.files.passportImage) {
         return res.status(400).json({ 
           message: "Profile picture, profile photo and passport image are required"
         });
@@ -1421,7 +1421,7 @@ app.post(
       }
 
       // Process file URLs
-      const profilePictureURL = req.files.profilePicture[0].path.replace(/\\/g, "/");
+      // const profilePictureURL = req.files.profilePicture[0].path.replace(/\\/g, "/");
       const photoURL = req.files.photo[0].path.replace(/\\/g, "/");
       const passportURL = req.files.passportImage[0].path.replace(/\\/g, "/");
       const certificateURL = req.files.certificate 
@@ -1437,7 +1437,7 @@ app.post(
         country,
         jobPosition,
         experience,
-        profilePictureURL,
+        // profilePictureURL,
         photoURL,
         passportURL,
         certificateURL,
@@ -1514,7 +1514,7 @@ app.get("/api/check-status/:passportNumber", async (req, res) => {
       status: application.status,
       createdAt: application.createdAt,
       userId: userId,
-      profilePictureURL: application.profilePictureURL,
+      // profilePictureURL: application.profilePictureURL,
       photoURL: application.photoURL,
       passportURL: application.passportURL,
       certificateURL: application.certificateURL,
