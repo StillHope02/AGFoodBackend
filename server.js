@@ -1612,10 +1612,12 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 /**********************************************************
- * EMAIL
+ * EMAIL (POOLED + FAST)
  **********************************************************/
 const transporter = nodemailer.createTransport({
   service: "gmail",
+  pool: true,
+  maxConnections: 5,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASSWORD,
@@ -1640,16 +1642,7 @@ const applicationSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
-const userSchema = new mongoose.Schema({
-  fullName: String,
-  passportNumber: { type: String, unique: true },
-  workField: String,
-  description: String,
-  createdAt: { type: Date, default: Date.now },
-});
-
 const Application = mongoose.model("Application", applicationSchema);
-const User = mongoose.model("User", userSchema);
 
 /**********************************************************
  * MONGODB CONNECTION (FIXED)
@@ -1662,33 +1655,18 @@ async function connectDB() {
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
     });
-
     isMongoConnected = true;
     console.log("✅ MongoDB connected successfully");
   } catch (err) {
     isMongoConnected = false;
-    console.error("❌ MongoDB connection error:", err.message);
+    console.error("❌ MongoDB error:", err.message);
   }
 }
-
 connectDB();
 
-mongoose.connection.on("connected", () => {
-  isMongoConnected = true;
-});
-
-mongoose.connection.on("disconnected", () => {
-  isMongoConnected = false;
-});
-
-/**********************************************************
- * DB CHECK MIDDLEWARE
- **********************************************************/
 function checkMongo(req, res, next) {
   if (!isMongoConnected) {
-    return res.status(503).json({
-      message: "Database not available",
-    });
+    return res.status(503).json({ message: "Database unavailable" });
   }
   next();
 }
@@ -1717,8 +1695,11 @@ async function sendApplicationEmail(data, files, id) {
       <h2>New Job Application</h2>
       <p><b>Name:</b> ${data.name}</p>
       <p><b>Passport:</b> ${data.passportNumber}</p>
-      <a href="${serverURL}/api/approve-application/${id}">Approve</a> |
-      <a href="${serverURL}/api/reject-application/${id}">Reject</a>
+      <p><b>Job:</b> ${data.jobPosition}</p>
+      <br/>
+      <a href="${serverURL}/api/approve-application/${id}">✅ Approve</a>
+      &nbsp;&nbsp;
+      <a href="${serverURL}/api/reject-application/${id}">❌ Reject</a>
     `,
     attachments,
   });
@@ -1731,7 +1712,9 @@ app.get("/", (_, res) =>
   res.json({ message: "AG Food Server Running" })
 );
 
-/* APPLY */
+/**********************************************************
+ * APPLY (FAST – NON BLOCKING EMAIL)
+ **********************************************************/
 app.post(
   "/apply",
   checkMongo,
@@ -1742,10 +1725,18 @@ app.post(
   ]),
   async (req, res) => {
     try {
-      const { name, email, phone, passportNumber, country, jobPosition, experience } = req.body;
+      const {
+        name,
+        email,
+        phone,
+        passportNumber,
+        country,
+        jobPosition,
+        experience,
+      } = req.body;
 
       if (!req.files?.photo || !req.files?.passportImage) {
-        return res.status(400).json({ message: "Files missing" });
+        return res.status(400).json({ message: "Required files missing" });
       }
 
       const exists = await Application.findOne({
@@ -1753,10 +1744,12 @@ app.post(
       });
 
       if (exists) {
-        return res.status(400).json({ message: "Passport already exists" });
+        return res
+          .status(400)
+          .json({ message: "Passport already exists" });
       }
 
-      const appData = new Application({
+      const application = new Application({
         name,
         email,
         phone,
@@ -1769,54 +1762,49 @@ app.post(
         certificateURL: req.files.certificate?.[0]?.path || "",
       });
 
-      await appData.save();
-      await sendApplicationEmail(req.body, req.files, appData._id);
+      await application.save();
 
+      /* 🔥 RESPOND IMMEDIATELY */
       res.status(201).json({
-        message: "Application submitted",
-        id: appData._id,
+        message: "Application submitted successfully",
+        applicationId: application._id,
+      });
+
+      /* 🚀 SEND EMAIL IN BACKGROUND */
+      setImmediate(async () => {
+        try {
+          await sendApplicationEmail(req.body, req.files, application._id);
+          console.log("✅ Email sent in background");
+        } catch (err) {
+          console.error("⚠️ Email failed:", err.message);
+        }
       });
     } catch (err) {
+      console.error(err);
       res.status(500).json({ error: err.message });
     }
   }
 );
 
-/* APPROVE */
+/**********************************************************
+ * APPROVE / REJECT
+ **********************************************************/
 app.get("/api/approve-application/:id", async (req, res) => {
-  const appData = await Application.findByIdAndUpdate(
-    req.params.id,
-    { status: "Approved" },
-    { new: true }
-  );
-  if (!appData) return res.send("Not found");
-  res.send("<h1>Application Approved</h1>");
+  await Application.findByIdAndUpdate(req.params.id, { status: "Approved" });
+  res.send("<h1>✅ Application Approved</h1>");
 });
 
-/* REJECT */
 app.get("/api/reject-application/:id", async (req, res) => {
-  const appData = await Application.findByIdAndUpdate(
-    req.params.id,
-    { status: "Rejected" },
-    { new: true }
-  );
-  if (!appData) return res.send("Not found");
-  res.send("<h1>Application Rejected</h1>");
+  await Application.findByIdAndUpdate(req.params.id, { status: "Rejected" });
+  res.send("<h1>❌ Application Rejected</h1>");
 });
 
-/* GET APPLICATIONS */
+/**********************************************************
+ * APPLICATION LIST
+ **********************************************************/
 app.get("/applications", checkMongo, async (_, res) => {
   const data = await Application.find().sort({ createdAt: -1 });
   res.json(data);
-});
-
-/* STATUS */
-app.get("/api/check-status/:passport", checkMongo, async (req, res) => {
-  const appData = await Application.findOne({
-    passportNumber: req.params.passport.toUpperCase(),
-  });
-  if (!appData) return res.status(404).json({ message: "Not found" });
-  res.json(appData);
 });
 
 /**********************************************************
