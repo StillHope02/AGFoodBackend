@@ -1862,15 +1862,30 @@ const upload = multer({ storage });
 /**********************************************************
  * EMAIL (BREVO SMTP – PRODUCTION SAFE)
  **********************************************************/
+// const transporter = nodemailer.createTransport({
+//   host: "smtp-relay.brevo.com",
+//   port: 587,
+//   secure: false,
+//   auth: {
+//     user: process.env.BREVO_USER,
+//     pass: process.env.BREVO_PASS,
+//   },
+// });
+
+import nodemailer from "nodemailer";
+
 const transporter = nodemailer.createTransport({
-  host: "smtp-relay.brevo.com",
-  port: 587,
+  host: process.env.BREVO_HOST,
+  port: process.env.BREVO_PORT,
   secure: false,
   auth: {
     user: process.env.BREVO_USER,
     pass: process.env.BREVO_PASS,
   },
 });
+
+export default transporter;
+
 
 /**********************************************************
  * SCHEMA
