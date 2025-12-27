@@ -2011,19 +2011,26 @@ app.post(
 
       await application.save();
 
-      /* EMAIL (SAFE – NO BACKGROUND JOB) */
-      await sendApplicationEmail(req.body, req.files, application._id);
-
+      /* ✅ IMMEDIATE RESPONSE (NO WAIT) */
       res.status(201).json({
         message: "Application submitted successfully",
         applicationId: application._id,
       });
+
+      /* 🚀 EMAIL — NON BLOCKING & SAFE */
+      sendApplicationEmail(req.body, req.files, application._id)
+        .then(() => console.log("✅ Email sent"))
+        .catch((err) =>
+          console.error("⚠️ Email failed (non-blocking):", err.message)
+        );
+
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: err.message });
     }
   }
 );
+
 
 /**********************************************************
  * APPROVE / REJECT
