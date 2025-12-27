@@ -1875,11 +1875,11 @@ const upload = multer({ storage });
 import nodemailer from "nodemailer";
 
 const transporter = nodemailer.createTransport({
-  host: process.env.BREVO_HOST,
-  port: process.env.BREVO_PORT,
+  host: 'smtp-relay.brevo.com',
+  port: 587,
   secure: false,
   auth: {
-    user: process.env.BREVO_USER,
+    user: '9ed699001@smtp-brevo.com',
     pass: '***REMOVED***',
   },
 });
